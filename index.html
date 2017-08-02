@@ -133,16 +133,18 @@
 			var container, stats;
 			var camera, scene, renderer;
 			var debugCoords = false;
-			var debugTexture;
 
 			window.toggleDebug = function() {
 				debugCoords = !debugCoords;
-				bindIFrame();
+				object.material = debugCoords ? debugMaterial : clothMaterial;
 			}
 
 			var clothGeometry;
+			var clothMaterial;
 			var clothTexture;
 			var clothTextureWebGL;
+			var debugMaterial;
+			var debugTexture;
 			var sphere;
 			var object;
 
@@ -200,12 +202,21 @@
 				clothTexture.wrapS = clothTexture.wrapT = THREE.ClampToEdgeWrapping;
 				clothTexture.minFilter = clothTexture.magFilter = THREE.LinearFilter;
 
-				var clothMaterial = new THREE.MeshPhongMaterial( {
+				clothMaterial = new THREE.MeshPhongMaterial( {
 					specular: 0x030303,
 					map: clothTexture,
 					side: THREE.DoubleSide,
 					alphaTest: 0.5
 				} );
+
+				debugTexture = loader.load('textures/debug.png');
+				debugTexture.wrapS = debugTexture.wrapT = THREE.ClampToEdgeWrapping;
+				debugTexture.minFilter = debugTexture.magFilter = THREE.LinearFilter;
+
+				debugMaterial = new THREE.MeshBasicMaterial({
+					map: debugTexture,
+					side: THREE.DoubleSide,
+				});
 
 				// cloth geometry
 				clothGeometry = new THREE.ParametricGeometry( clothFunction, cloth.w, cloth.h );
@@ -349,40 +360,15 @@
 				var gl = renderer.context;
 
 				var textureProperties = renderer.properties.get( clothTexture );
-				if (!clothTextureWebGL) {
-					clothTextureWebGL = textureProperties.__webglTexture;
-				}
-				if (clothTextureWebGL) {
-					if (debugCoords) {
-						if (!debugTexture) {
-							debugTexture = gl.createTexture();
-							gl.bindTexture(gl.TEXTURE_2D, debugTexture);
-							gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-							gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-							gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-							gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-							var pixels = new Uint8Array(512*512*4);
-							for (let y = 0; y < 512; ++y) {
-								for (let x = 0; x < 512; ++x) {
-									pixels[(x + y*512)*4 + 0] = Math.floor(x / 512 * 255);
-									pixels[(x + y*512)*4 + 1] = Math.floor(y / 512 * 255);
-									pixels[(x + y*512)*4 + 2] = 0;
-									pixels[(x + y*512)*4 + 3] = 255;
-								}
-							}
-							gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 512, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-						}
-						textureProperties.__webglTexture = debugTexture;
-					} else if (clothTextureWebGL) {
-						gl.bindTexture(gl.TEXTURE_2D, clothTextureWebGL);
-						gl.bindTexSource(gl.TEXTURE_2D, textureSourceFrame);
-						textureProperties.__webglTexture = clothTextureWebGL;
-					}
+				if (textureProperties.__webglTexture) {
+					gl.bindTexture(gl.TEXTURE_2D, textureProperties.__webglTexture);
+					gl.bindTexSource(gl.TEXTURE_2D, textureSourceFrame);
 
 					var error = gl.getError();
 					if (error != gl.NO_ERROR) {
 						window.requestAnimationFrame(bindIFrame);
 					} else {
+						clothTextureWebGL = textureProperties.__webglTexture;
 						window.requestAnimationFrame(animate);
 					}
 				} else {
